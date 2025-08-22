@@ -1,107 +1,81 @@
-/* Reset */
-* {
-  margin: 0;
-  padding: 0;
-  box-sizing: border-box;
-  font-family: "Fira Code", monospace;
-}
-
 body {
+  font-family: monospace, sans-serif;
   background: #1e1e1e;
-  color: #ddd;
+  color: #eee;
+  margin: 0;
   padding: 20px;
 }
 
-h1, h2 {
-  color: #fff;
-  margin-bottom: 10px;
-}
-
-header {
-  margin-bottom: 20px;
-  text-align: center;
-}
-
-#controls {
-  margin-bottom: 20px;
-  text-align: center;
+h1 {
+  color: #4ade80;
 }
 
 textarea {
   width: 80%;
-  height: 80px;
-  background: #252526;
-  color: #ddd;
-  border: 1px solid #444;
-  border-radius: 6px;
-  padding: 10px;
-  resize: none;
+  height: 60px;
+  padding: 8px;
+  margin-bottom: 10px;
+  font-family: monospace;
 }
 
 button {
-  margin: 10px 5px;
-  padding: 10px 20px;
-  border: none;
-  border-radius: 6px;
+  padding: 6px 12px;
+  margin: 5px;
+  background: #333;
+  color: white;
+  border: 1px solid #555;
   cursor: pointer;
-  background: #007acc;
-  color: #fff;
-  font-weight: bold;
-  transition: background 0.3s;
 }
 
 button:hover {
-  background: #005f99;
+  background: #4ade80;
+  color: black;
 }
 
-#terminal-section {
-  background: #000;
-  color: #0f0;
-  padding: 15px;
-  border-radius: 8px;
-  height: 200px;
+.terminal {
+  background: black;
+  color: #00ff00;
+  padding: 10px;
+  height: 120px;
   overflow-y: auto;
-  margin-bottom: 20px;
-  font-size: 14px;
+  margin: 15px 0;
+  border: 1px solid #444;
 }
 
-#tabs {
+.editor {
+  margin-top: 20px;
+}
+
+.tabs {
+  display: flex;
+  gap: 10px;
   margin-bottom: 10px;
 }
 
 .tab {
-  background: #2d2d2d;
-  color: #aaa;
-  padding: 8px 15px;
-  border: none;
+  background: #222;
+  color: #ccc;
+  border: 1px solid #444;
+  padding: 5px 10px;
   cursor: pointer;
-  border-radius: 6px 6px 0 0;
-  margin-right: 4px;
 }
 
 .tab.active {
-  background: #1e1e1e;
-  color: #fff;
-  border-bottom: 2px solid #007acc;
+  background: #4ade80;
+  color: black;
 }
 
-#output {
-  background: #1e1e1e;
-  padding: 15px;
-  border-radius: 0 6px 6px 6px;
-  min-height: 200px;
-  color: #f8f8f2;
-  overflow-x: auto;
-}
-
-#preview-section {
-  margin-top: 20px;
+pre {
+  background: #111;
+  padding: 10px;
+  border: 1px solid #333;
+  height: 200px;
+  overflow-y: auto;
 }
 
 iframe {
   width: 100%;
   height: 300px;
   border: 1px solid #444;
-  border-radius: 6px;
-  background: #fff;
+  background: white;
 }
