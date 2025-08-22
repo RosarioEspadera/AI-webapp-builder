@@ -22,20 +22,26 @@ async function generate() {
   output.textContent = "⏳ Generating files...";
 
   try {
-    const res = await fetch("https://ai-webapp-builder-production.up.railway.app/generate", {
+    const res = await fetch(backendURL, {
       method: "POST",
-      headers: {"Content-Type": "application/json"},
-      body: JSON.stringify({prompt})
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ prompt })
     });
 
+    if (!res.ok) throw new Error(`HTTP error! ${res.status}`);
+
     const data = await res.json();
-    generatedFiles = data.files;
+    generatedFiles = data.files || {
+      "index.html": "",
+      "style.css": "",
+      "script.js": ""
+    };
 
     // Show HTML by default
     document.getElementById("output").textContent = generatedFiles["index.html"] || "";
   } catch (err) {
     output.textContent = "❌ Error fetching from backend";
-    console.error(err);
+    console.error("Backend error:", err);
   }
 }
 
@@ -45,11 +51,12 @@ function runApp() {
 <!DOCTYPE html>
 <html>
 <head>
-<style>${generatedFiles["style.css"]}</style>
+<meta charset="UTF-8">
+<style>${generatedFiles["style.css"] || ""}</style>
 </head>
 <body>
-${generatedFiles["index.html"]}
-<script>${generatedFiles["script.js"]}<\/script>
+${generatedFiles["index.html"] || ""}
+<script>${generatedFiles["script.js"] || ""}<\/script>
 </body>
 </html>`;
   iframe.srcdoc = html;
