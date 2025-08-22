@@ -2,6 +2,7 @@ document.getElementById("generateBtn").addEventListener("click", generate);
 
 async function generate() {
   const prompt = document.getElementById("prompt").value;
+  const output = document.getElementById("output");
   const preview = document.getElementById("preview");
 
   if (!prompt.trim()) {
@@ -9,7 +10,8 @@ async function generate() {
     return;
   }
 
-  preview.srcdoc = "<p style='font-family:Arial; padding:20px;'>⏳ Generating app...</p>";
+  output.textContent = "⏳ Generating code...";
+  preview.srcdoc = "";
 
   try {
     const res = await fetch("https://ai-webapp-builder-production.up.railway.app/generate", {
@@ -21,12 +23,29 @@ async function generate() {
     const data = await res.json();
 
     if (data.code) {
+      // Show raw code in "View Code"
+      output.textContent = data.code;
+
+      // Also load it in Preview tab
       preview.srcdoc = data.code;
     } else {
-      preview.srcdoc = "<p style='color:red; font-family:Arial; padding:20px;'>❌ Error: No code returned</p>";
+      output.textContent = "❌ Error: No code returned";
     }
   } catch (err) {
-    preview.srcdoc = "<p style='color:red; font-family:Arial; padding:20px;'>❌ Failed to connect to backend</p>";
+    output.textContent = "❌ Failed to connect to backend";
     console.error(err);
+  }
+}
+
+function showTab(tab) {
+  document.querySelectorAll(".tab").forEach(t => t.classList.remove("active"));
+  document.querySelectorAll(".tab-button").forEach(b => b.classList.remove("active"));
+
+  if (tab === "code") {
+    document.getElementById("codeTab").classList.add("active");
+    document.querySelector(".tab-button:nth-child(1)").classList.add("active");
+  } else {
+    document.getElementById("previewTab").classList.add("active");
+    document.querySelector(".tab-button:nth-child(2)").classList.add("active");
   }
 }
