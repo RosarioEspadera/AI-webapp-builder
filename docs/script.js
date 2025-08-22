@@ -1,127 +1,109 @@
-// === DOM ELEMENTS ===
-const terminal = document.getElementById("terminal");
-const output = document.getElementById("output");
-const preview = document.getElementById("preview");
-const promptInput = document.getElementById("prompt");
-const generateBtn = document.getElementById("generateBtn");
+document.addEventListener("DOMContentLoaded", () => {
+  const generateBtn = document.getElementById("generateBtn");
+  const promptInput = document.getElementById("prompt");
+  const terminal = document.getElementById("terminal");
+  const output = document.getElementById("output");
+  const preview = document.getElementById("preview");
+  const tabs = document.querySelectorAll(".tab");
 
-const tabs = document.querySelectorAll(".tab");
+  let files = {
+    "index.html": "",
+    "style.css": "",
+    "script.js": ""
+  };
 
-let currentFile = "index.html";
-let generatedFiles = {};
+  // --- Typing effect (per character) ---
+  function typeWriter(message, delay = 20) {
+    return new Promise(resolve => {
+      let i = 0;
+      function typeChar() {
+        if (i < message.length) {
+          terminal.textContent += message[i];
+          terminal.scrollTop = terminal.scrollHeight;
+          i++;
+          setTimeout(typeChar, delay);
+        } else {
+          terminal.textContent += "\n";
+          terminal.scrollTop = terminal.scrollHeight;
+          resolve();
+        }
+      }
+      typeChar();
+    });
+  }
 
-// === TYPING EFFECT IN TERMINAL ===
-function typeInTerminal(text, callback) {
-  let i = 0;
-  terminal.innerHTML = ""; 
-  const typing = setInterval(() => {
-    terminal.innerHTML += text.charAt(i);
-    i++;
-    if (i >= text.length) {
-      clearInterval(typing);
-      if (callback) callback();
+  async function logFile(fileName, content) {
+    await typeWriter(`\n📄 Writing ${fileName}...`);
+    const lines = content.split("\n");
+    for (const line of lines) {
+      await typeWriter("  " + line);
     }
-  }, 30);
-}
+  }
 
-// === FILE TAB SWITCHING ===
-tabs.forEach(tab => {
-  tab.addEventListener("click", () => {
-    currentFile = tab.dataset.file;
-    showFileContent();
-    tabs.forEach(t => t.classList.remove("active"));
-    tab.classList.add("active");
+  function injectFilesIntoPreview() {
+    const doc = preview.contentDocument || preview.contentWindow.document;
+    doc.open();
+    doc.write(files["index.html"]);
+    doc.close();
+
+    // Append CSS
+    const style = doc.createElement("style");
+    style.textContent = files["style.css"];
+    doc.head.appendChild(style);
+
+    // Append JS
+    const script = doc.createElement("script");
+    script.textContent = files["script.js"];
+    doc.body.appendChild(script);
+  }
+
+  tabs.forEach(tab => {
+    tab.addEventListener("click", () => {
+      tabs.forEach(t => t.classList.remove("active"));
+      tab.classList.add("active");
+      const fileName = tab.dataset.file;
+      output.textContent = files[fileName] || "";
+    });
   });
-});
 
-function showFileContent() {
-  if (generatedFiles[currentFile]) {
-    output.textContent = generatedFiles[currentFile];
-  } else {
-    output.textContent = `// ${currentFile} is empty`;
-  }
-}
+  generateBtn.addEventListener("click", async () => {
+    const prompt = promptInput.value.trim();
+    if (!prompt) {
+      alert("Please enter an idea first.");
+      return;
+    }
 
-// === FALLBACK CSS ===
-const fallbackCSS = `
-  body {
-    font-family: Arial, sans-serif;
-    background: #f4f4f9;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    padding: 20px;
-  }
-  h1 { color: #333; }
-  input, button {
-    padding: 10px;
-    margin: 5px;
-    border-radius: 5px;
-    border: 1px solid #ccc;
-  }
-  button {
-    background: #4CAF50;
-    color: white;
-    cursor: pointer;
-  }
-  button:hover { background: #45a049; }
-  ul { list-style: none; padding: 0; }
-  li {
-    background: white;
-    padding: 10px;
-    margin: 5px 0;
-    border-radius: 4px;
-    box-shadow: 0 1px 3px rgba(0,0,0,0.1);
-  }
-`;
+    terminal.textContent = ""; // clear terminal
+    await typeWriter(`$ Generating app for: "${prompt}" ...`);
 
-// === PREVIEW INJECTION ===
-function injectFilesIntoPreview(files) {
-  const html = files["index.html"] || "<h1>No index.html found</h1>";
-  const css = files["style.css"] && files["style.css"].trim() !== "" ? files["style.css"] : fallbackCSS;
-  const js = files["script.js"] || "";
-
-  const previewDoc = preview.contentDocument || preview.contentWindow.document;
-  previewDoc.open();
-  previewDoc.write(`
-    <!DOCTYPE html>
-    <html>
-    <head>
-      <style>${css}</style>
-    </head>
-    <body>
-      ${html}
-      <script>${js}<\/script>
-    </body>
-    </html>
-  `);
-  previewDoc.close();
-}
-
-// === GENERATE APP ===
-generateBtn.addEventListener("click", async () => {
-  const userPrompt = promptInput.value.trim();
-  if (!userPrompt) return alert("Please enter a prompt!");
-
-  typeInTerminal(`> Generating app for: "${userPrompt}"\n`, async () => {
     try {
-      const res = await fetch("https://ai-webapp-builder-production.up.railway.app/generate", {
+      const response = await fetch("https://ai-webapp-builder-production.up.railway.app/generate", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ prompt: userPrompt })
+        body: JSON.stringify({ prompt })
       });
 
-      const data = await res.json();
-      generatedFiles = data.files || {};
+      if (!response.ok) throw new Error("Backend error");
 
-      typeInTerminal(`> Generating app for: "${userPrompt}"\n✔ Files generated successfully!`, () => {
-        showFileContent();
-        injectFilesIntoPreview(generatedFiles);
-      });
+      const data = await response.json();
+      files = data.files || files;
+
+      // --- Print each file line by line ---
+      for (const [fileName, content] of Object.entries(files)) {
+        await logFile(fileName, content);
+      }
+
+      await typeWriter("✔️ Build complete!");
+
+      // Show index.html by default
+      document.querySelector(".tab.active").click();
+
+      // Update preview
+      injectFilesIntoPreview();
 
     } catch (err) {
-      typeInTerminal("❌ Error generating files.");
       console.error(err);
+      await typeWriter("❌ Error generating files.");
     }
   });
 });
