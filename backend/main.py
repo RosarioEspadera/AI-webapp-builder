@@ -5,6 +5,7 @@ import json
 import os
 import re
 
+
 app = FastAPI()
 
 # Allow frontend (e.g. GitHub Pages)
