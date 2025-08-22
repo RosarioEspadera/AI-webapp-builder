@@ -1,51 +1,56 @@
+const backendURL = "https://ai-webapp-builder-production.up.railway.app/generate";
+
+let generatedFiles = {
+  "index.html": "",
+  "style.css": "",
+  "script.js": ""
+};
+
 document.getElementById("generateBtn").addEventListener("click", generate);
+document.getElementById("runBtn").addEventListener("click", runApp);
+
+document.querySelectorAll(".tab").forEach(tab => {
+  tab.addEventListener("click", () => {
+    const file = tab.dataset.file;
+    document.getElementById("output").textContent = generatedFiles[file] || "";
+  });
+});
 
 async function generate() {
   const prompt = document.getElementById("prompt").value;
   const output = document.getElementById("output");
-  const preview = document.getElementById("preview");
-
-  if (!prompt.trim()) {
-    alert("⚠️ Please describe your app before generating!");
-    return;
-  }
-
-  output.textContent = "⏳ Generating code...";
-  preview.srcdoc = "";
+  output.textContent = "⏳ Generating files...";
 
   try {
-    const res = await fetch("https://ai-webapp-builder-production.up.railway.app/generate", {
+    const res = await fetch(backendURL, {
       method: "POST",
       headers: {"Content-Type": "application/json"},
-      body: JSON.stringify(prompt)
+      body: JSON.stringify({prompt})
     });
 
     const data = await res.json();
+    generatedFiles = data.files;
 
-    if (data.code) {
-      // Show raw code in "View Code"
-      output.textContent = data.code;
-
-      // Also load it in Preview tab
-      preview.srcdoc = data.code;
-    } else {
-      output.textContent = "❌ Error: No code returned";
-    }
+    // Show HTML by default
+    document.getElementById("output").textContent = generatedFiles["index.html"] || "";
   } catch (err) {
-    output.textContent = "❌ Failed to connect to backend";
+    output.textContent = "❌ Error fetching from backend";
     console.error(err);
   }
 }
 
-function showTab(tab) {
-  document.querySelectorAll(".tab").forEach(t => t.classList.remove("active"));
-  document.querySelectorAll(".tab-button").forEach(b => b.classList.remove("active"));
-
-  if (tab === "code") {
-    document.getElementById("codeTab").classList.add("active");
-    document.querySelector(".tab-button:nth-child(1)").classList.add("active");
-  } else {
-    document.getElementById("previewTab").classList.add("active");
-    document.querySelector(".tab-button:nth-child(2)").classList.add("active");
-  }
+function runApp() {
+  const iframe = document.getElementById("preview");
+  const html = `
+<!DOCTYPE html>
+<html>
+<head>
+<style>${generatedFiles["style.css"]}</style>
+</head>
+<body>
+${generatedFiles["index.html"]}
+<script>${generatedFiles["script.js"]}<\/script>
+</body>
+</html>`;
+  iframe.srcdoc = html;
 }
