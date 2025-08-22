@@ -1,82 +1,78 @@
-const backendURL = "https://ai-webapp-builder-production.up.railway.app/generate";
-
-let generatedFiles = {
-  "index.html": "",
-  "style.css": "",
-  "script.js": ""
-};
-
-// Elements
-const output = document.getElementById("output");
 const promptInput = document.getElementById("prompt");
-const iframe = document.getElementById("preview");
+const generateBtn = document.getElementById("generateBtn");
+const runBtn = document.getElementById("runBtn");
+const terminal = document.getElementById("terminal");
+const tabs = document.querySelectorAll(".tab");
+const output = document.getElementById("output");
+const preview = document.getElementById("preview");
 
-// Button actions
-document.getElementById("generateBtn").addEventListener("click", generate);
-document.getElementById("runBtn").addEventListener("click", runApp);
+let files = { "index.html": "", "style.css": "", "script.js": "" };
+let activeFile = "index.html";
 
-// Tab switching
-document.querySelectorAll(".tab").forEach(tab => {
+// --- Fake Terminal Typing ---
+function typeToTerminal(text) {
+  let i = 0;
+  function typing() {
+    if (i < text.length) {
+      terminal.textContent += text[i];
+      terminal.scrollTop = terminal.scrollHeight;
+      i++;
+      setTimeout(typing, 20);
+    } else {
+      terminal.textContent += "\n";
+    }
+  }
+  typing();
+}
+
+// --- Handle Tab Switching ---
+tabs.forEach(tab => {
   tab.addEventListener("click", () => {
-    const file = tab.dataset.file;
-    const content = generatedFiles[file] || "// No code generated yet";
-    output.textContent = content;
+    document.querySelector(".tab.active").classList.remove("active");
+    tab.classList.add("active");
+    activeFile = tab.dataset.file;
+    output.textContent = files[activeFile] || "";
   });
 });
 
-async function generate() {
+// --- Generate Files ---
+generateBtn.addEventListener("click", async () => {
   const prompt = promptInput.value.trim();
-  if (!prompt) {
-    output.textContent = "⚠️ Please enter a prompt first.";
-    return;
-  }
+  if (!prompt) return alert("Please enter a prompt!");
 
-  output.textContent = "⏳ Generating files... please wait";
+  terminal.textContent = "";
+  typeToTerminal(`> Generating app for: "${prompt}"\n`);
 
   try {
-    const res = await fetch(backendURL, {
+    const response = await fetch("https://ai-webapp-builder-production.up.railway.app/generate", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ prompt })
     });
 
-    if (!res.ok) {
-      const errMsg = `❌ Backend returned ${res.status} ${res.statusText}`;
-      console.error(errMsg);
-      output.textContent = errMsg;
-      return;
+    const data = await response.json();
+    if (data.files) {
+      files = data.files;
+      output.textContent = files[activeFile];
+      typeToTerminal("✔️ Files generated successfully!");
+    } else {
+      typeToTerminal("❌ Error: Failed to generate files.");
     }
-
-    const data = await res.json();
-
-    // Ensure correct structure
-    generatedFiles = data.files || {
-      "index.html": "",
-      "style.css": "",
-      "script.js": ""
-    };
-
-    // Show HTML by default
-    output.textContent = generatedFiles["index.html"] || "// Empty index.html";
   } catch (err) {
-    console.error("❌ Backend error:", err);
-    output.textContent = `❌ Failed to fetch from backend: ${err.message}`;
+    typeToTerminal("❌ Network Error: " + err.message);
   }
-}
+});
 
-function runApp() {
-  const html = `
-<!DOCTYPE html>
-<html>
-<head>
-  <meta charset="UTF-8">
-  <style>${generatedFiles["style.css"] || ""}</style>
-</head>
-<body>
-  ${generatedFiles["index.html"] || ""}
-  <script>${generatedFiles["script.js"] || ""}<\/script>
-</body>
-</html>
-  `;
-  iframe.srcdoc = html;
-}
+// --- Run App in Preview ---
+runBtn.addEventListener("click", () => {
+  if (!files["index.html"]) {
+    return typeToTerminal("❌ No app to run. Generate first.");
+  }
+  const blob = new Blob(
+    [files["index.html"].replace("</body>", `<script>${files["script.js"]}</script></body>`)
+      .replace("</head>", `<style>${files["style.css"]}</style></head>`)], 
+    { type: "text/html" }
+  );
+  preview.src = URL.createObjectURL(blob);
+  typeToTerminal("▶️ Running app in preview...");
+});
