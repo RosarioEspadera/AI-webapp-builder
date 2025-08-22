@@ -6,19 +6,40 @@
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
-  <h1>AI Web App Builder</h1>
-  <textarea id="prompt" placeholder="Describe your app idea..."></textarea><br>
-  <button id="generateBtn">Generate Files</button>
-  <button id="runBtn">Run App</button>
+  <header>
+    <h1>⚡ AI Web App Builder</h1>
+  </header>
 
-  <div id="tabs">
-    <button class="tab" data-file="index.html">index.html</button>
-    <button class="tab" data-file="style.css">style.css</button>
-    <button class="tab" data-file="script.js">script.js</button>
-  </div>
+  <main>
+    <!-- Prompt Input -->
+    <section id="controls">
+      <textarea id="prompt" placeholder="Describe your app idea..."></textarea><br>
+      <button id="generateBtn">⚙️ Generate Files</button>
+      <button id="runBtn">▶️ Run App</button>
+    </section>
 
-  <pre><code id="output"></code></pre>
-  <iframe id="preview"></iframe>
+    <!-- Terminal Output -->
+    <section id="terminal-section">
+      <h2>🖥️ AI Terminal</h2>
+      <pre id="terminal">Waiting for your prompt...</pre>
+    </section>
+
+    <!-- Tabs for files -->
+    <section id="editor">
+      <div id="tabs">
+        <button class="tab active" data-file="index.html">index.html</button>
+        <button class="tab" data-file="style.css">style.css</button>
+        <button class="tab" data-file="script.js">script.js</button>
+      </div>
+      <pre><code id="output"></code></pre>
+    </section>
+
+    <!-- Live Preview -->
+    <section id="preview-section">
+      <h2>📱 Live Preview</h2>
+      <iframe id="preview"></iframe>
+    </section>
+  </main>
 
   <script src="script.js"></script>
 </body>
