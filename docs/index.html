@@ -7,11 +7,24 @@
 </head>
 <body>
   <h1>AI Web App Builder (Groq + Railway)</h1>
-  
-  <textarea id="prompt" placeholder="Describe your app..."></textarea><br>
-  <button id="generateBtn">Generate App</button>
 
-  <iframe id="preview"></iframe>
+  <textarea id="prompt" placeholder="Describe your app..."></textarea><br>
+  <button id="generateBtn">Generate</button>
+
+  <!-- Tabs -->
+  <div class="tabs">
+    <button class="tab-button active" onclick="showTab('code')">View Code</button>
+    <button class="tab-button" onclick="showTab('preview')">Preview App</button>
+  </div>
+
+  <!-- Output Areas -->
+  <div id="codeTab" class="tab active">
+    <pre><code id="output"></code></pre>
+  </div>
+
+  <div id="previewTab" class="tab">
+    <iframe id="preview"></iframe>
+  </div>
 
   <script src="script.js"></script>
 </body>
