@@ -18,7 +18,7 @@ app.add_middleware(
 
 # Config
 GROQ_API_KEY = os.getenv("GROQ_API_KEY")
-MODEL = "gemma-7b"  # You can change model if needed
+MODEL = "gemma2-9b-it"  # You can change model if needed
 
 SYSTEM_PROMPT = """
 You are a code generator. 
