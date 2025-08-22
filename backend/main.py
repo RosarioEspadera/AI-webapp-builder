@@ -1,11 +1,13 @@
-from fastapi import FastAPI, Request, HTTPException
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
-import os, re, json
-import httpx
+import requests
+import json
+import os
+import re
 
 app = FastAPI()
 
-# Allow frontend (GitHub Pages or any domain)
+# Allow frontend (e.g. GitHub Pages)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],  
@@ -14,8 +16,9 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# Config
 GROQ_API_KEY = os.getenv("GROQ_API_KEY")
-MODEL = "mixtral-8x7b-32768"  # Groq model
+MODEL = "mixtral-8x7b-32768"  # You can change model if needed
 
 SYSTEM_PROMPT = """
 You are a code generator. 
@@ -41,49 +44,38 @@ def extract_json(text: str):
         match = re.search(r"\{[\s\S]*\}", text)
         if match:
             return json.loads(match.group(0))
-    except Exception as e:
-        print("⚠️ JSON extraction failed:", e)
-
-    # Always return safe fallback
+    except Exception:
+        pass
     return {"files": {"index.html": "", "style.css": "", "script.js": ""}}
 
 @app.post("/generate")
 async def generate(request: Request):
     body = await request.json()
-    prompt = body.get("prompt", "") if isinstance(body, dict) else str(body)
-
-    if not GROQ_API_KEY:
-        raise HTTPException(status_code=500, detail="GROQ_API_KEY not set")
+    prompt = body if isinstance(body, str) else body.get("prompt", "")
 
     try:
-        async with httpx.AsyncClient(timeout=60.0) as client:
-            response = await client.post(
-                "https://api.groq.com/v1/chat/completions",
-                headers={"Authorization": f"Bearer {GROQ_API_KEY}"},
-                json={
-                    "model": MODEL,
-                    "messages": [
-                        {"role": "system", "content": SYSTEM_PROMPT},
-                        {"role": "user", "content": f"Build a web app: {prompt}"}
-                    ],
-                    "temperature": 0
-                }
-            )
-            response.raise_for_status()
-            data = response.json()
-
-        # Extract raw model output (before parsing)
-        raw_text = (
-            data.get("choices", [{}])[0]
-            .get("message", {})
-            .get("content", "")
+        response = requests.post(
+            "https://api.groq.com/openai/v1/chat/completions",
+            headers={
+                "Authorization": f"Bearer {GROQ_API_KEY}",
+                "Content-Type": "application/json"
+            },
+            json={
+                "model": MODEL,
+                "messages": [
+                    {"role": "system", "content": SYSTEM_PROMPT},
+                    {"role": "user", "content": f"Build a web app: {prompt}"}
+                ],
+                "temperature": 0
+            }
         )
 
-        print("📜 RAW MODEL OUTPUT:\n", raw_text, "\n--- END RAW ---")  # 🔥 Debug log
+        if response.status_code != 200:
+            return {"detail": f"Groq API error: {response.text}"}
 
-        return extract_json(raw_text)
+        raw_text = response.json()["choices"][0]["message"]["content"]
+        data = extract_json(raw_text)
+        return data
 
-    except httpx.HTTPStatusError as e:
-        raise HTTPException(status_code=e.response.status_code, detail=f"Groq API error: {e.response.text}")
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Internal server error: {str(e)}")
+        return {"detail": f"Backend error: {str(e)}"}
