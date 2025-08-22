@@ -6,25 +6,19 @@
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
-  <h1>AI Web App Builder (Groq + Railway)</h1>
+  <h1>AI Web App Builder</h1>
+  <textarea id="prompt" placeholder="Describe your app idea..."></textarea><br>
+  <button id="generateBtn">Generate Files</button>
+  <button id="runBtn">Run App</button>
 
-  <textarea id="prompt" placeholder="Describe your app..."></textarea><br>
-  <button id="generateBtn">Generate</button>
-
-  <!-- Tabs -->
-  <div class="tabs">
-    <button class="tab-button active" onclick="showTab('code')">View Code</button>
-    <button class="tab-button" onclick="showTab('preview')">Preview App</button>
+  <div id="tabs">
+    <button class="tab" data-file="index.html">index.html</button>
+    <button class="tab" data-file="style.css">style.css</button>
+    <button class="tab" data-file="script.js">script.js</button>
   </div>
 
-  <!-- Output Areas -->
-  <div id="codeTab" class="tab active">
-    <pre><code id="output"></code></pre>
-  </div>
-
-  <div id="previewTab" class="tab">
-    <iframe id="preview"></iframe>
-  </div>
+  <pre><code id="output"></code></pre>
+  <iframe id="preview"></iframe>
 
   <script src="script.js"></script>
 </body>
