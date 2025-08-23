@@ -283,6 +283,16 @@ ${files["index.html"] || ""}
   doc.write(html);
   doc.close();
 }
+document.getElementById("fullscreenBtn").addEventListener("click", () => {
+  const iframe = document.getElementById("previewFrame");
+  if (iframe.requestFullscreen) {
+    iframe.requestFullscreen();
+  } else if (iframe.webkitRequestFullscreen) { // Safari
+    iframe.webkitRequestFullscreen();
+  } else if (iframe.msRequestFullscreen) { // IE11
+    iframe.msRequestFullscreen();
+  }
+});
 
 // ==========================
 // Debounce helper
