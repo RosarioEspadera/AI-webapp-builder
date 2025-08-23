@@ -1,41 +1,48 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
+  <meta charset="UTF-8" />
   <title>AI Web App Builder</title>
-  <link rel="stylesheet" href="style.css">
-
-  <!-- Prism.js for syntax highlighting -->
-  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/themes/prism-tomorrow.min.css">
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/prism.min.js"></script>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-javascript.min.js"></script>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-css.min.js"></script>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-markup.min.js"></script>
+  <link rel="stylesheet" href="style.css" />
+  <!-- Prism for syntax highlighting -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/themes/prism.min.css" />
 </head>
 <body>
-  <h1>AI Web App Builder</h1>
+  <header>
+    <h1>⚡ AI Web App Builder</h1>
+    <div class="controls">
+      <textarea id="prompt" placeholder="Describe your app idea..."></textarea>
+      <div class="buttons">
+        <button id="generateBtn">Generate</button>
+        <button id="runBtn">Run</button>
+        <button id="resetBtn" title="Clear saved files">Reset</button>
+      </div>
+    </div>
+  </header>
 
-  <textarea id="prompt" placeholder="Describe your app idea..."></textarea><br>
-  <button id="generateBtn">Generate Files</button>
-  <button id="runBtn">Run App</button>
+  <main>
+    <section class="editor-pane">
+      <div id="tabs" class="tabs">
+        <button class="tab active" data-file="index.html">index.html</button>
+        <button class="tab" data-file="style.css">style.css</button>
+        <button class="tab" data-file="script.js">script.js</button>
+      </div>
+      <div id="codeArea" class="code-area">
+        <pre id="lineNumbers" class="line-numbers"></pre>
+        <pre class="code-pre"><code id="output" class="language-html" contenteditable="true"></code></pre>
+      </div>
+    </section>
 
-  <div id="terminal"></div>
+    <section class="right-pane">
+      <h2>🖥 Terminal</h2>
+      <pre id="terminal" class="terminal"></pre>
 
-  <div id="tabs">
-    <button class="tab active" data-file="index.html">index.html</button>
-    <button class="tab" data-file="style.css">style.css</button>
-    <button class="tab" data-file="script.js">script.js</button>
-  </div>
+      <h2>🌐 Preview</h2>
+      <iframe id="preview"></iframe>
+    </section>
+  </main>
 
-  <!-- Code Editor with Line Numbers -->
-  <div id="editorWrapper">
-    <div id="lineNumbers"></div>
-    <pre id="editorContainer"><code id="output" class="language-html" contenteditable="true"></code></pre>
-  </div>
-
-  <!-- Preview -->
-  <iframe id="preview"></iframe>
-
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/prism.min.js"></script>
   <script src="script.js"></script>
 </body>
 </html>
