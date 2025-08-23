@@ -20,7 +20,7 @@ app.add_middleware(
 
 # Environment
 GROQ_API_KEY = os.getenv("GROQ_API_KEY", "")
-MODEL = os.getenv("GROQ_MODEL", "llama-3.1-8b-instant")
+MODEL = os.getenv("GROQ_MODEL", "openai/gpt-oss-120b")
 
 SYSTEM_PROMPT = """You are an AI web app code generator.
 Return ONLY JSON with this shape:
