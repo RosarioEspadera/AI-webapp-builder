@@ -1,7 +1,7 @@
 import os
 import json
 import asyncio
-import requests
+import httpx
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse, JSONResponse
@@ -50,67 +50,59 @@ async def generate(request: Request):
     prompt = body.get("prompt", "").strip() or "simple app"
 
     async def stream():
-        async def emit(obj):
-            yield (json.dumps(obj) + "\n").encode("utf-8")
+        def emit(obj):
+            return (json.dumps(obj) + "\n").encode("utf-8")
 
         # Start
-        async for chunk in emit({"type": "log", "message": "🚀 Starting build process..."}):
-            yield chunk
+        yield emit({"type": "log", "message": "🚀 Starting build process..."})
         await asyncio.sleep(0.2)
 
-        async for chunk in emit({"type": "log", "message": f"🧠 Calling Groq model: {MODEL}"}):
-            yield chunk
+        yield emit({"type": "log", "message": f"🧠 Calling Groq model: {MODEL}"})
 
         # Call Groq
         try:
-            resp = requests.post(
-                "https://api.groq.com/openai/v1/chat/completions",
-                headers={
-                    "Authorization": f"Bearer {GROQ_API_KEY}",
-                    "Content-Type": "application/json",
-                },
-                json={
-                    "model": MODEL,
-                    "temperature": 0,  # deterministic output
-                    "response_format": {"type": "json_object"},  # force JSON output
-                    "messages": [
-                        {"role": "system", "content": SYSTEM_PROMPT},
-                        {"role": "user", "content": f"Generate a web app: {prompt}"},
-                    ],
-                },
-                timeout=60,
-            )
+            async with httpx.AsyncClient(timeout=60) as client:
+                resp = await client.post(
+                    "https://api.groq.com/openai/v1/chat/completions",
+                    headers={
+                        "Authorization": f"Bearer {GROQ_API_KEY}",
+                        "Content-Type": "application/json",
+                    },
+                    json={
+                        "model": MODEL,
+                        "temperature": 0,
+                        "messages": [
+                            {"role": "system", "content": SYSTEM_PROMPT},
+                            {"role": "user", "content": f"Generate a web app: {prompt}"},
+                        ],
+                    },
+                )
         except Exception as e:
-            async for chunk in emit({"type": "log", "message": f"❌ Network error: {e}"}):
-                yield chunk
+            yield emit({"type": "log", "message": f"❌ Network error: {e}"})
             return
 
         if resp.status_code != 200:
-            async for chunk in emit({
+            yield emit({
                 "type": "log",
                 "message": f"❌ Groq HTTP {resp.status_code}: {resp.text[:300]}"
-            }):
-                yield chunk
+            })
             return
 
         # Parse JSON response
         try:
             content = resp.json()["choices"][0]["message"]["content"]
         except Exception:
-            async for chunk in emit({"type": "log", "message": "❌ Bad response format from Groq."}):
-                yield chunk
+            yield emit({"type": "log", "message": "❌ Bad response format from Groq."})
             return
 
-        # Debug log: raw output
-        async for chunk in emit({"type": "file", "name": "_raw_groq.txt", "hidden": True, "content": content}):
-            yield chunk
+        # Debug: save raw
+        yield emit({"type": "file", "name": "_raw_groq.txt", "hidden": True, "content": content})
 
         # Try JSON load
         try:
             data = json.loads(content)
         except Exception as e:
-            async for chunk in emit({"type": "log", "message": f"❌ JSON parse error: {e}"}):
-                yield chunk
+            yield emit({"type": "log", "message": f"❌ JSON parse error: {e}"})
             data = {"index.html": "", "style.css": "", "script.js": ""}
 
         # Ensure keys exist
@@ -120,12 +112,10 @@ async def generate(request: Request):
 
         # Emit files
         for name in ["index.html", "style.css", "script.js"]:
-            async for chunk in emit({"type": "file", "name": name, "content": data[name]}):
-                yield chunk
+            yield emit({"type": "file", "name": name, "content": data[name]})
             await asyncio.sleep(0.1)
 
         # Done
-        async for chunk in emit({"type": "log", "message": "✅ Build completed successfully!"}):
-            yield chunk
+        yield emit({"type": "log", "message": "✅ Build completed successfully!"})
 
     return StreamingResponse(stream(), media_type="application/x-ndjson; charset=utf-8")
