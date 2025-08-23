@@ -1,48 +1,54 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
+  <meta charset="UTF-8">
   <title>AI Web App Builder</title>
-  <link rel="stylesheet" href="style.css" />
-  <!-- Prism for syntax highlighting -->
-  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/themes/prism.min.css" />
+  <link rel="stylesheet" href="style.css">
+
+  <!-- Prism.js -->
+  <link href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/themes/prism.min.css" rel="stylesheet"/>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/prism.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-javascript.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-css.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-markup.min.js"></script>
 </head>
 <body>
   <header>
-    <h1>Web App Builder</h1>
-    <div class="controls">
-      <textarea id="prompt" placeholder="Describe your app idea..."></textarea>
-      <div class="buttons">
-        <button id="generateBtn">Generate</button>
-        <button id="runBtn">Run</button>
-        <button id="resetBtn" title="Clear saved files">Reset</button>
-      </div>
-    </div>
+    <h1>⚡ AI Web App Builder</h1>
   </header>
 
   <main>
-    <section class="editor-pane">
-      <div id="tabs" class="tabs">
+    <!-- Left: Editor -->
+    <section class="editor-panel">
+      <div class="tabs">
         <button class="tab active" data-file="index.html">index.html</button>
         <button class="tab" data-file="style.css">style.css</button>
         <button class="tab" data-file="script.js">script.js</button>
       </div>
-      <div id="codeArea" class="code-area">
+      <div class="editor-wrapper">
         <pre id="lineNumbers" class="line-numbers"></pre>
-        <pre class="code-pre"><code id="output" class="language-html" contenteditable="true"></code></pre>
+        <pre class="editor language-html" id="output" contenteditable="true" spellcheck="false"></pre>
+      </div>
+      <div class="controls">
+        <input id="prompt" placeholder="Describe your app (e.g. todo list)" />
+        <button id="generateBtn">✨ Generate</button>
+        <button id="runBtn">▶ Run</button>
+        <button id="resetBtn">♻ Reset</button>
       </div>
     </section>
 
-    <section class="right-pane">
-      <h2>🖥 Terminal</h2>
-      <pre id="terminal" class="terminal"></pre>
-
-      <h2>🌐 Preview</h2>
+    <!-- Right: Preview -->
+    <section class="preview-panel">
       <iframe id="preview"></iframe>
     </section>
   </main>
 
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/prism.min.js"></script>
-  <script src="script.js"></script>
+  <!-- Terminal -->
+  <section class="terminal">
+    <h2>Terminal</h2>
+    <div id="terminal"></div>
+  </section>
+
+  <script src="app.js"></script>
 </body>
 </html>
