@@ -6,13 +6,8 @@ const backendURL = "https://ai-webapp-builder-production.up.railway.app/generate
 // ==========================
 // 📂 State
 // ==========================
-let files = {
-  "index.html": "",
-  "style.css": "",
-  "script.js": ""
-};
+let files = { "index.html": "", "style.css": "", "script.js": "" };
 let currentFile = "index.html";
-
 // ==========================
 // 💾 Storage Keys
 // ==========================
@@ -27,6 +22,7 @@ const output = document.getElementById("output");
 const preview = document.getElementById("preview");
 const lineNumbers = document.getElementById("lineNumbers");
 const promptEl = document.getElementById("prompt");
+const modelEl = document.getElementById("model"); // ✅ added
 
 // ==========================
 // 💾 Persistence
@@ -199,12 +195,13 @@ document.getElementById("generateBtn").addEventListener("click", async () => {
   writeLog("🚀 Requesting build...");
 
   const prompt = (promptEl.value || "simple todo app").trim();
+  const model = modelEl.value; // ✅ send model
 
   try {
     const res = await fetch(backendURL, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ prompt })
+      body: JSON.stringify({ prompt, model }) // ✅ backend accepts model now
     });
 
     if (!res.ok || !res.body) {
@@ -236,7 +233,6 @@ document.getElementById("generateBtn").addEventListener("click", async () => {
           writeLog(msg.message);
         } else if (msg.type === "file") {
           files[msg.name] = msg.content || "";
-          saveAll();
           if (currentFile === msg.name) {
             output.textContent = files[msg.name];
             Prism.highlightElement(output);
@@ -247,25 +243,12 @@ document.getElementById("generateBtn").addEventListener("click", async () => {
         }
       }
     }
-
-    // Handle final buffer
-    if (buffer.trim()) {
-      try {
-        const msg = JSON.parse(buffer);
-        if (msg.type === "log") writeLog(msg.message);
-        if (msg.type === "file") {
-          files[msg.name] = msg.content || "";
-          injectPreview();
-          writeLog(`🧩 Updated ${msg.name}`);
-        }
-      } catch {}
-    }
-
     writeLog("✅ Build stream finished.");
   } catch (err) {
     writeLog(`❌ ${err.message}`, true);
   }
 });
+
 
 // ==========================
 // ▶️ Run
