@@ -5,16 +5,47 @@ let files = {
 };
 let currentFile = "index.html";
 
+const STORAGE_KEY = "ai-webapp-builder:files:v1";
+const CURRENT_FILE_KEY = "ai-webapp-builder:currentFile:v1";
+
 const terminal = document.getElementById("terminal");
 const output = document.getElementById("output");
 const preview = document.getElementById("preview");
 const lineNumbers = document.getElementById("lineNumbers");
 
-// --- Terminal ---
+/* ---------------- LocalStorage utils ---------------- */
+function safeGetItem(key) {
+  try { return localStorage.getItem(key); } catch { return null; }
+}
+function safeSetItem(key, val) {
+  try { localStorage.setItem(key, val); } catch {}
+}
+function saveFilesToStorage() {
+  safeSetItem(STORAGE_KEY, JSON.stringify(files));
+  safeSetItem(CURRENT_FILE_KEY, currentFile);
+}
+let saveDebounce;
+function saveFilesToStorageDebounced() {
+  clearTimeout(saveDebounce);
+  saveDebounce = setTimeout(saveFilesToStorage, 200);
+}
+function loadFilesFromStorage() {
+  const raw = safeGetItem(STORAGE_KEY);
+  const cf = safeGetItem(CURRENT_FILE_KEY);
+  if (raw) {
+    try {
+      const parsed = JSON.parse(raw);
+      if (parsed && typeof parsed === "object") files = { ...files, ...parsed };
+    } catch {}
+  }
+  if (cf && files[cf] !== undefined) currentFile = cf;
+}
+
+/* ---------------- Terminal ---------------- */
 function typeToTerminal(text, delay = 20) {
   return new Promise(resolve => {
     let i = 0;
-    let interval = setInterval(() => {
+    const interval = setInterval(() => {
       terminal.textContent += text[i];
       terminal.scrollTop = terminal.scrollHeight;
       i++;
@@ -27,16 +58,16 @@ function typeToTerminal(text, delay = 20) {
   });
 }
 
-// --- Editor Functions ---
+/* ---------------- Editor ---------------- */
 function showFile(fileName) {
-  saveFileEdits();
+  saveFileEdits(); // persist outgoing tab edits
   currentFile = fileName;
 
   document.querySelectorAll(".tab").forEach(tab => {
-    tab.classList.remove("active");
-    if (tab.dataset.file === fileName) tab.classList.add("active");
+    tab.classList.toggle("active", tab.dataset.file === fileName);
   });
 
+  // set syntax highlighting class
   output.className = "";
   if (fileName.endsWith(".html")) output.classList.add("language-html");
   if (fileName.endsWith(".css")) output.classList.add("language-css");
@@ -45,45 +76,45 @@ function showFile(fileName) {
   output.textContent = files[fileName] || "";
   Prism.highlightElement(output);
   updateLineNumbers();
+  saveFilesToStorageDebounced(); // persist currentFile
 }
 
 function saveFileEdits() {
   files[currentFile] = output.textContent;
+  saveFilesToStorageDebounced();
 }
 
 function updateLineNumbers() {
   const lines = (output.textContent.match(/\n/g) || []).length + 1;
-  lineNumbers.innerHTML = Array.from({ length: lines }, (_, i) => i + 1).join("\n");
+  lineNumbers.textContent = Array.from({ length: lines }, (_, i) => i + 1).join("\n");
 }
 
-// --- Auto Indent + Tab Support ---
+/* --- Auto Indent + Tab/Shift+Tab --- */
 output.addEventListener("keydown", function(e) {
-  // Enter auto-indent
+  // Enter -> auto indent
   if (e.key === "Enter") {
     e.preventDefault();
-    const selection = window.getSelection();
-    const range = selection.getRangeAt(0);
-
+    const sel = window.getSelection();
+    const range = sel.getRangeAt(0);
     const textBefore = output.textContent.slice(0, range.startOffset);
     const currentLine = textBefore.split("\n").pop();
-    const indentMatch = currentLine.match(/^\s+/);
-    const indent = indentMatch ? indentMatch[0] : "";
-
+    const indent = (currentLine.match(/^\s+/) || [""])[0];
     document.execCommand("insertText", false, "\n" + indent);
     updateLineNumbers();
     Prism.highlightElement(output);
+    saveFilesToStorageDebounced();
   }
 
-  // Tab & Shift+Tab
+  // Tab / Shift+Tab
   if (e.key === "Tab") {
     e.preventDefault();
     if (e.shiftKey) {
-      // Unindent
-      let sel = window.getSelection();
-      let range = sel.getRangeAt(0);
-      let beforeText = output.textContent.slice(0, range.startOffset);
-      let lineStart = beforeText.lastIndexOf("\n") + 1;
-      let lineText = beforeText.slice(lineStart);
+      // unindent if line starts with 2 spaces
+      const sel = window.getSelection();
+      const range = sel.getRangeAt(0);
+      const before = output.textContent.slice(0, range.startOffset);
+      const lineStart = before.lastIndexOf("\n") + 1;
+      const lineText = before.slice(lineStart);
       if (lineText.startsWith("  ")) {
         document.execCommand("delete", false, null);
         document.execCommand("delete", false, null);
@@ -93,16 +124,17 @@ output.addEventListener("keydown", function(e) {
     }
     updateLineNumbers();
     Prism.highlightElement(output);
+    saveFilesToStorageDebounced();
   }
 });
 
-// Update line numbers live
+/* Live updates -> save + re-highlight */
 output.addEventListener("input", () => {
-  updateLineNumbers();
+  saveFileEdits();
   Prism.highlightElement(output);
 });
 
-// --- Preview Injection ---
+/* ---------------- Preview ---------------- */
 function injectFilesIntoPreview(files) {
   const doc = preview.contentDocument || preview.contentWindow.document;
   doc.open();
@@ -121,14 +153,12 @@ function injectFilesIntoPreview(files) {
   doc.close();
 }
 
-// --- Tabs ---
+/* ---------------- Tabs ---------------- */
 document.querySelectorAll(".tab").forEach(tab => {
-  tab.addEventListener("click", () => {
-    showFile(tab.dataset.file);
-  });
+  tab.addEventListener("click", () => showFile(tab.dataset.file));
 });
 
-// --- Generate Example Files ---
+/* ---------------- Generate Example Files ---------------- */
 document.getElementById("generateBtn").addEventListener("click", async () => {
   terminal.textContent = "";
   await typeToTerminal("🚀 Starting build process...");
@@ -155,9 +185,7 @@ body {
   background: #f9f9f9;
   padding: 20px;
 }
-h1 {
-  color: purple;
-}
+h1 { color: purple; }
   `.trim();
 
   files["script.js"] = `
@@ -176,21 +204,22 @@ button.addEventListener("click", () => {
 });
   `.trim();
 
-  // Show full code in terminal
   await typeToTerminal("📄 index.html:\n" + files["index.html"]);
   await typeToTerminal("🎨 style.css:\n" + files["style.css"]);
   await typeToTerminal("⚙️ script.js:\n" + files["script.js"]);
-
   await typeToTerminal("✅ Build completed successfully!");
+
+  saveFilesToStorage();   // persist freshly generated files immediately
   showFile("index.html");
 });
 
-// --- Run App ---
+/* ---------------- Run ---------------- */
 document.getElementById("runBtn").addEventListener("click", () => {
   saveFileEdits();
   injectFilesIntoPreview(files);
   typeToTerminal("▶️ Running app in preview...");
 });
 
-// Initialize
-showFile("index.html");
+/* ---------------- Init ---------------- */
+loadFilesFromStorage();
+showFile(currentFile);
