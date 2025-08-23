@@ -1,5 +1,5 @@
 // ===== Config =====
-const backendURL = "https://ai-webapp-builder-production.up.railway.app/generate"; // <-- your Railway URL
+const backendURL = "https://ai-webapp-builder-production.up.railway.app/generate";
 
 // ===== State =====
 let files = {
@@ -44,6 +44,45 @@ function writeLog(msg, isError=false) {
   terminal.scrollTop = terminal.scrollHeight;
 }
 
+// ===== Cursor preservation =====
+function getCursorPosition(element) {
+  const selection = window.getSelection();
+  if (selection.rangeCount === 0) return 0;
+  const range = selection.getRangeAt(0);
+  const preRange = range.cloneRange();
+  preRange.selectNodeContents(element);
+  preRange.setEnd(range.endContainer, range.endOffset);
+  return preRange.toString().length;
+}
+
+function setCursorPosition(element, pos) {
+  const selection = window.getSelection();
+  const range = document.createRange();
+  let node = element;
+  let charIndex = 0;
+
+  function findNode(n) {
+    if (n.nodeType === 3) {
+      let nextCharIndex = charIndex + n.length;
+      if (pos >= charIndex && pos <= nextCharIndex) {
+        range.setStart(n, pos - charIndex);
+        range.setEnd(n, pos - charIndex);
+        return true;
+      }
+      charIndex = nextCharIndex;
+    } else {
+      for (let child of n.childNodes) {
+        if (findNode(child)) return true;
+      }
+    }
+    return false;
+  }
+
+  findNode(element);
+  selection.removeAllRanges();
+  selection.addRange(range);
+}
+
 // ===== Editor =====
 function showFile(fileName) {
   saveEdits();
@@ -53,7 +92,7 @@ function showFile(fileName) {
     t.classList.toggle("active", t.dataset.file === fileName);
   });
 
-  output.className = "";
+  output.className = "editor";
   if (fileName.endsWith(".html")) output.classList.add("language-html");
   if (fileName.endsWith(".css")) output.classList.add("language-css");
   if (fileName.endsWith(".js")) output.classList.add("language-javascript");
@@ -74,7 +113,16 @@ function updateLineNumbers() {
   lineNumbers.textContent = Array.from({length: lines}, (_,i)=>i+1).join("\n");
 }
 
-// Auto-indent + Tab support
+// ===== Input handling =====
+output.addEventListener("input", () => {
+  const pos = getCursorPosition(output);
+  Prism.highlightElement(output);
+  setCursorPosition(output, pos);
+
+  updateLineNumbers();
+  saveEdits();
+});
+
 output.addEventListener("keydown", (e) => {
   if (e.key === "Enter") {
     e.preventDefault();
@@ -85,25 +133,16 @@ output.addEventListener("keydown", (e) => {
     const indent = (currentLine.match(/^\s+/) || [""])[0];
     document.execCommand("insertText", false, "\n" + indent);
     updateLineNumbers();
-    Prism.highlightElement(output);
   } else if (e.key === "Tab") {
     e.preventDefault();
     if (e.shiftKey) {
-      // naive unindent: delete two spaces if present
       document.execCommand("delete", false, null);
       document.execCommand("delete", false, null);
     } else {
       document.execCommand("insertText", false, "  ");
     }
     updateLineNumbers();
-    Prism.highlightElement(output);
   }
-});
-
-output.addEventListener("input", () => {
-  updateLineNumbers();
-  Prism.highlightElement(output);
-  saveEdits();
 });
 
 // ===== Preview =====
@@ -158,9 +197,8 @@ document.getElementById("generateBtn").addEventListener("click", async () => {
       if (done) break;
       buffer += decoder.decode(value, { stream: true });
 
-      // Split NDJSON lines
       const lines = buffer.split("\n");
-      buffer = lines.pop() || ""; // keep trailing partial
+      buffer = lines.pop() || "";
 
       for (const line of lines) {
         if (!line.trim()) continue;
@@ -175,20 +213,17 @@ document.getElementById("generateBtn").addEventListener("click", async () => {
         } else if (msg.type === "file") {
           files[msg.name] = msg.content || "";
           saveAll();
-          // show and re-highlight if visible file
           if (currentFile === msg.name) {
             output.textContent = files[msg.name];
             Prism.highlightElement(output);
             updateLineNumbers();
           }
-          // auto-refresh preview on every file arrival
           injectPreview();
           writeLog(`🧩 Updated ${msg.name}`);
         }
       }
     }
 
-    // Flush any remaining (unlikely valid JSON)
     if (buffer.trim()) {
       try {
         const msg = JSON.parse(buffer);
@@ -198,11 +233,10 @@ document.getElementById("generateBtn").addEventListener("click", async () => {
           injectPreview();
           writeLog(`🧩 Updated ${msg.name}`);
         }
-      } catch {/* ignore */}
+      } catch {}
     }
 
     writeLog("✅ Build stream finished.");
-
   } catch (err) {
     writeLog(`❌ ${err.message}`, true);
   }
@@ -215,7 +249,7 @@ document.getElementById("runBtn").addEventListener("click", () => {
   writeLog("▶️ Running app in preview...");
 });
 
-// ===== Reset workspace =====
+// ===== Reset =====
 document.getElementById("resetBtn").addEventListener("click", () => {
   localStorage.removeItem(STORAGE_KEY);
   localStorage.removeItem(CURRENT_FILE_KEY);
