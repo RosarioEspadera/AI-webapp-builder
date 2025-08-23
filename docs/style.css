@@ -1,142 +1,150 @@
-:root {
-  --bg: #1e1e1e;
-  --panel: #2a2a2a;
-  --panel-2: #252526;
-  --text: #ddd;
-  --muted: #999;
-  --accent: #ffcc00;
-  --btn: #3a3a3a;
-  --btn-hover: #555;
-  --term-bg: #000;
-  --term-success: #0f0;
-  --term-error: #f55;
-  --border: #444;
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+  font-family: monospace;
 }
 
-* { box-sizing: border-box; }
-
 body {
-  margin: 0;
-  background: var(--bg);
-  color: var(--text);
-  font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  background: #1e1e1e;
+  color: #ddd;
 }
 
 header {
-  padding: 16px;
-  border-bottom: 1px solid var(--border);
+  padding: 0.5rem 1rem;
+  background: #222;
+  border-bottom: 2px solid #444;
 }
 
-h1 { margin: 0 0 12px; color: var(--accent); }
-
-.controls {
-  display: grid;
-  grid-template-columns: 1fr auto;
-  gap: 12px;
-  align-items: start;
+header h1 {
+  font-size: 1.2rem;
+  color: #0ff;
 }
-
-textarea#prompt {
-  width: 100%;
-  min-height: 80px;
-  background: var(--panel);
-  color: var(--text);
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  padding: 10px;
-  resize: vertical;
-}
-
-.buttons button {
-  background: var(--btn);
-  color: white;
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  padding: 10px 14px;
-  margin-left: 8px;
-  cursor: pointer;
-}
-.buttons button:hover { background: var(--btn-hover); }
 
 main {
-  display: grid;
-  grid-template-columns: 1.1fr 0.9fr;
-  gap: 16px;
-  padding: 16px;
+  flex: 1;
+  display: flex;
+  overflow: hidden;
 }
 
-.editor-pane, .right-pane {
-  background: var(--panel);
-  border: 1px solid var(--border);
-  border-radius: 10px;
-  overflow: hidden;
+/* Editor */
+.editor-panel {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  border-right: 2px solid #333;
 }
 
 .tabs {
   display: flex;
-  background: var(--panel-2);
-  border-bottom: 1px solid var(--border);
-}
-.tab {
-  padding: 10px 14px;
-  background: transparent;
-  border: 0;
-  color: var(--text);
-  cursor: pointer;
-}
-.tab.active {
-  color: var(--accent);
-  font-weight: 600;
-  background: #1b1b1b;
+  background: #2a2a2a;
 }
 
-.code-area {
-  display: grid;
-  grid-template-columns: 60px 1fr;
-  height: 420px;
+.tab {
+  flex: 1;
+  padding: 0.5rem;
+  border: none;
+  cursor: pointer;
+  background: #2a2a2a;
+  color: #bbb;
+  border-bottom: 2px solid transparent;
 }
-#lineNumbers {
-  margin: 0;
-  background: var(--panel-2);
-  color: var(--muted);
-  padding: 10px 8px;
+
+.tab.active {
+  color: #fff;
+  border-bottom: 2px solid #0ff;
+  background: #333;
+}
+
+.editor-wrapper {
+  flex: 1;
+  display: flex;
   overflow: hidden;
+}
+
+#lineNumbers {
+  padding: 0.5rem;
+  text-align: right;
+  color: #666;
+  background: #1a1a1a;
   user-select: none;
-  border-right: 1px solid var(--border);
+  border-right: 1px solid #333;
 }
-.code-pre {
-  margin: 0;
-  padding: 0;
-  overflow: auto;
-}
+
 #output {
-  display: block;
-  min-height: 100%;
+  flex: 1;
+  padding: 0.5rem;
   outline: none;
-  padding: 10px 14px;
+  overflow: auto;
   white-space: pre;
 }
 
-.right-pane {
-  padding: 12px;
+.controls {
+  display: flex;
+  gap: 0.5rem;
+  padding: 0.5rem;
+  border-top: 2px solid #333;
+  background: #222;
 }
-.right-pane h2 { margin: 6px 0 8px; }
 
-.terminal {
-  background: var(--term-bg);
-  color: var(--term-success);
-  padding: 12px;
-  height: 220px;
-  overflow-y: auto;
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  white-space: pre-wrap;
+.controls input {
+  flex: 1;
+  padding: 0.5rem;
+  border: none;
+  background: #111;
+  color: #eee;
+}
+
+.controls button {
+  padding: 0.5rem 0.8rem;
+  border: none;
+  cursor: pointer;
+  background: #0aa;
+  color: #fff;
+  border-radius: 4px;
+  font-weight: bold;
+}
+
+.controls button:hover {
+  background: #0cc;
+}
+
+/* Preview */
+.preview-panel {
+  flex: 1;
+  background: #111;
 }
 
 #preview {
   width: 100%;
-  height: 320px;
-  border: 1px solid var(--border);
-  border-radius: 8px;
+  height: 100%;
+  border: none;
   background: white;
+}
+
+/* Terminal */
+.terminal {
+  height: 20vh;
+  background: #111;
+  border-top: 2px solid #333;
+  display: flex;
+  flex-direction: column;
+}
+
+.terminal h2 {
+  font-size: 0.9rem;
+  padding: 0.3rem 0.5rem;
+  background: #222;
+  color: #0ff;
+}
+
+#terminal {
+  flex: 1;
+  padding: 0.5rem;
+  overflow-y: auto;
+  font-size: 0.85rem;
+  line-height: 1.3;
 }
