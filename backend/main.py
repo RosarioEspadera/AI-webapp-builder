@@ -19,7 +19,7 @@ app.add_middleware(
 
 # Environment variables
 GROQ_API_KEY = os.getenv("GROQ_API_KEY", "")
-MODEL = os.getenv("GROQ_MODEL", "qwen/qwen3-32b")
+MODEL = os.getenv("GROQ_MODEL", "openai/gpt-oss-120b")
 
 SYSTEM_PROMPT = """You are an AI web app code generator.
 
