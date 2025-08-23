@@ -1,14 +1,15 @@
 import os
+import re
 import json
 import asyncio
-import httpx
+import requests
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse, JSONResponse
 
 app = FastAPI()
 
-# CORS (open for now, restrict later if needed)
+# CORS
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -17,28 +18,35 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Environment variables
+# Environment
 GROQ_API_KEY = os.getenv("GROQ_API_KEY", "")
-MODEL = os.getenv("GROQ_MODEL", "openai/gpt-oss-120b")
+MODEL = os.getenv("GROQ_MODEL", "llama-3.1-8b-instant")
 
 SYSTEM_PROMPT = """You are an AI web app code generator.
-
-Your ONLY task:
-- Return a single valid JSON object.
-- No prose, no explanations, no markdown fences.
-
-The JSON MUST have exactly these keys:
+Return ONLY JSON with this shape:
 {
   "index.html": "<!DOCTYPE html>...",
-  "style.css": "/* CSS here */",
-  "script.js": "// JS here"
+  "style.css": "/* css */",
+  "script.js": "// js"
 }
-
-Rules:
-- Never add extra keys.
-- Never add comments outside the JSON.
-- Code must be minimal, correct, runnable in browser.
+No prose, no markdown fences. Strict JSON only.
 """
+
+def extract_json_block(text: str):
+    """Extract JSON object safely from response text"""
+    cleaned = re.sub(r"```(?:json)?", "", text).strip()
+    matches = re.findall(r"\{[\s\S]*\}", cleaned)
+    if not matches:
+        return None
+    candidate = max(matches, key=len)
+    try:
+        return json.loads(candidate)
+    except Exception:
+        fixed = candidate.replace("\n", " ").replace("\t", " ")
+        try:
+            return json.loads(fixed)
+        except Exception:
+            return None
 
 @app.get("/")
 async def health():
@@ -50,72 +58,60 @@ async def generate(request: Request):
     prompt = body.get("prompt", "").strip() or "simple app"
 
     async def stream():
-        def emit(obj):
-            return (json.dumps(obj) + "\n").encode("utf-8")
+        async def emit(obj):
+            yield (json.dumps(obj) + "\n").encode("utf-8")
 
-        # Start
-        yield emit({"type": "log", "message": "🚀 Starting build process..."})
+        # Start logs
+        async for chunk in emit({"type": "log", "message": "🚀 Starting build process..."}): yield chunk
         await asyncio.sleep(0.2)
+        async for chunk in emit({"type": "log", "message": f"🧠 Calling Groq model: {MODEL}"}): yield chunk
 
-        yield emit({"type": "log", "message": f"🧠 Calling Groq model: {MODEL}"})
-
-        # Call Groq
+        # Call Groq API
         try:
-            async with httpx.AsyncClient(timeout=60) as client:
-                resp = await client.post(
-                    "https://api.groq.com/openai/v1/chat/completions",
-                    headers={
-                        "Authorization": f"Bearer {GROQ_API_KEY}",
-                        "Content-Type": "application/json",
-                    },
-                    json={
-                        "model": MODEL,
-                        "temperature": 0,
-                        "messages": [
-                            {"role": "system", "content": SYSTEM_PROMPT},
-                            {"role": "user", "content": f"Generate a web app: {prompt}"},
-                        ],
-                    },
-                )
+            resp = requests.post(
+                "https://api.groq.com/openai/v1/chat/completions",
+                headers={
+                    "Authorization": f"Bearer {GROQ_API_KEY}",
+                    "Content-Type": "application/json",
+                },
+                json={
+                    "model": MODEL,
+                    "temperature": 0.15,
+                    "messages": [
+                        {"role": "system", "content": SYSTEM_PROMPT},
+                        {"role": "user", "content": f"Generate a web app: {prompt}"},
+                    ],
+                },
+                timeout=60,
+            )
         except Exception as e:
-            yield emit({"type": "log", "message": f"❌ Network error: {e}"})
+            async for chunk in emit({"type": "log", "message": f"❌ Network error: {e}"}): yield chunk
             return
 
         if resp.status_code != 200:
-            yield emit({
-                "type": "log",
-                "message": f"❌ Groq HTTP {resp.status_code}: {resp.text[:300]}"
-            })
+            async for chunk in emit({"type": "log", "message": f"❌ Groq HTTP {resp.status_code}: {resp.text[:200]}"}): yield chunk
             return
 
-        # Parse JSON response
         try:
             content = resp.json()["choices"][0]["message"]["content"]
         except Exception:
-            yield emit({"type": "log", "message": "❌ Bad response format from Groq."})
+            async for chunk in emit({"type": "log", "message": "❌ Bad response format"}): yield chunk
             return
 
-        # Debug: save raw
-        yield emit({"type": "file", "name": "_raw_groq.txt", "hidden": True, "content": content})
+        # Send raw response (debug)
+        async for chunk in emit({"type": "file", "name": "_raw_groq.txt", "hidden": True, "content": content}): yield chunk
 
-        # Try JSON load
-        try:
-            data = json.loads(content)
-        except Exception as e:
-            yield emit({"type": "log", "message": f"❌ JSON parse error: {e}"})
-            data = {"index.html": "", "style.css": "", "script.js": ""}
-
-        # Ensure keys exist
+        # Try parsing JSON
+        data = extract_json_block(content) or {}
         for name in ["index.html", "style.css", "script.js"]:
-            if name not in data:
-                data[name] = ""
+            data.setdefault(name, "")
 
-        # Emit files
+        # Send files once (frontend should keep edits after this!)
         for name in ["index.html", "style.css", "script.js"]:
-            yield emit({"type": "file", "name": name, "content": data[name]})
+            async for chunk in emit({"type": "file", "name": name, "content": data[name]}):
+                yield chunk
             await asyncio.sleep(0.1)
 
-        # Done
-        yield emit({"type": "log", "message": "✅ Build completed successfully!"})
+        async for chunk in emit({"type": "log", "message": "✅ Build completed successfully!"}): yield chunk
 
     return StreamingResponse(stream(), media_type="application/x-ndjson; charset=utf-8")
