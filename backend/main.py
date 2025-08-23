@@ -17,9 +17,9 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Environment
+# Environment variables
 GROQ_API_KEY = os.getenv("GROQ_API_KEY", "")
-MODEL = os.getenv("GROQ_MODEL", "qwen-2.5-coder-32b")  # default model
+MODEL = os.getenv("GROQ_MODEL", "qwen/qwen3-32b")
 
 SYSTEM_PROMPT = """You are an AI web app code generator.
 
