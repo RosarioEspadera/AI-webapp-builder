@@ -2,11 +2,11 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>AI Web App Builder</title>
+  <title>⚡ AI Web App Builder</title>
   <link rel="stylesheet" href="style.css">
 
   <!-- Prism.js -->
-  <link href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/themes/prism.min.css" rel="stylesheet"/>
+  <link href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/themes/prism-tomorrow.min.css" rel="stylesheet"/>  
   <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/prism.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-javascript.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-css.min.js"></script>
@@ -25,12 +25,20 @@
         <button class="tab" data-file="style.css">style.css</button>
         <button class="tab" data-file="script.js">script.js</button>
       </div>
+
       <div class="editor-wrapper">
         <pre id="lineNumbers" class="line-numbers"></pre>
-        <pre class="editor language-html" id="output" contenteditable="true" spellcheck="false"></pre>
+        <pre id="output" class="editor language-html" contenteditable="true" spellcheck="false"></pre>
       </div>
+
       <div class="controls">
         <input id="prompt" placeholder="Describe your app (e.g. todo list)" />
+        <select id="model">
+          <option value="llama-3.1-8b-instant">llama-3.1-8b-instant</option>
+          <option value="llama-3.3-70b-versatile">llama-3.3-70b-versatile</option>
+          <option value="gemma2-9b-it">gemma2-9b-it</option>
+          <option value="deepseek-r1-distill-llama-70b">deepseek-r1-distill-llama-70b</option>
+        </select>
         <button id="generateBtn">✨ Generate</button>
         <button id="runBtn">▶ Run</button>
         <button id="resetBtn">♻ Reset</button>
