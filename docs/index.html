@@ -6,14 +6,14 @@
   <link rel="stylesheet" href="style.css">
 
   <!-- Prism.js for syntax highlighting -->
-  <link href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/themes/prism-tomorrow.min.css" rel="stylesheet"/>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/themes/prism-tomorrow.min.css">
   <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/prism.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-javascript.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-css.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-markup.min.js"></script>
 </head>
 <body>
- <h1>AI Web App Builder</h1>
+  <h1>AI Web App Builder</h1>
 
   <textarea id="prompt" placeholder="Describe your app idea..."></textarea><br>
   <button id="generateBtn">Generate Files</button>
@@ -27,8 +27,8 @@
     <button class="tab" data-file="script.js">script.js</button>
   </div>
 
-  <!-- Editable code output -->
-  <pre><code id="output" contenteditable="true"></code></pre>
+  <!-- Editable highlighted code -->
+  <pre id="editorContainer"><code id="output" class="language-html" contenteditable="true"></code></pre>
 
   <!-- Preview -->
   <iframe id="preview"></iframe>
