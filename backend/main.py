@@ -1,82 +1,57 @@
-from fastapi import FastAPI, Request
+from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
-import requests
-import json
-import os
-import re
-
+from openai import OpenAI
+import json, os
 
 app = FastAPI()
+client = OpenAI(api_key=os.getenv("GROQ_API_KEY"), base_url="https://api.groq.com/openai/v1")
 
-# Allow frontend (e.g. GitHub Pages)
+# Enable CORS for frontend testing
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  
+    allow_origins=["*"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
-# Config
-GROQ_API_KEY = os.getenv("GROQ_API_KEY")
-MODEL = "gemma2-9b-it"  # You can change model if needed
-
-SYSTEM_PROMPT = """
-You are a code generator. 
-Always respond with JSON only in the following format:
-
-{
-  "files": {
-    "index.html": "...",
-    "style.css": "...",
-    "script.js": "..."
-  }
-}
-
-Rules:
-- Do NOT add explanations or text outside JSON.
-- If a file is not needed, return an empty string.
-- Code must be minimal and functional.
-"""
-
-def extract_json(text: str):
-    """Safely extract JSON even if model adds extra text."""
-    try:
-        match = re.search(r"\{[\s\S]*\}", text)
-        if match:
-            return json.loads(match.group(0))
-    except Exception:
-        pass
-    return {"files": {"index.html": "", "style.css": "", "script.js": ""}}
+MODEL = "llama3-groq-70b-8192-tool-use-preview"
 
 @app.post("/generate")
-async def generate(request: Request):
-    body = await request.json()
-    prompt = body if isinstance(body, str) else body.get("prompt", "")
+async def generate_app(payload: dict):
+    prompt = payload.get("prompt")
+    if not prompt:
+        raise HTTPException(status_code=400, detail="Prompt is required.")
+
+    system_prompt = """You are an AI web app code generator.
+You ONLY return JSON with three fields:
+{
+  "index.html": "<!DOCTYPE html>....",
+  "style.css": "body {...}",
+  "script.js": "console.log('hi')"
+}
+Do not explain. Do not add comments outside JSON. Keep it valid JSON.
+"""
 
     try:
-        response = requests.post(
-            "https://api.groq.com/openai/v1/chat/completions",
-            headers={
-                "Authorization": f"Bearer {GROQ_API_KEY}",
-                "Content-Type": "application/json"
-            },
-            json={
-                "model": MODEL,
-                "messages": [
-                    {"role": "system", "content": SYSTEM_PROMPT},
-                    {"role": "user", "content": f"Build a web app: {prompt}"}
-                ],
-                "temperature": 0
-            }
+        response = client.chat.completions.create(
+            model=MODEL,
+            temperature=0.2,  # lower → more deterministic
+            messages=[
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": f"Generate a web app: {prompt}"}
+            ]
         )
 
-        if response.status_code != 200:
-            return {"detail": f"Groq API error: {response.text}"}
+        raw = response.choices[0].message.content.strip()
 
-        raw_text = response.json()["choices"][0]["message"]["content"]
-        data = extract_json(raw_text)
-        return data
+        # Validate JSON (in case model outputs extra)
+        try:
+            files = json.loads(raw)
+        except json.JSONDecodeError:
+            raise HTTPException(status_code=500, detail="Invalid JSON returned from model")
+
+        return files
 
     except Exception as e:
-        return {"detail": f"Backend error: {str(e)}"}
+        raise HTTPException(status_code=500, detail=str(e))
