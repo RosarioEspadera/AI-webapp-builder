@@ -134,6 +134,19 @@ html, body {
   font-size: .9rem;
   color: var(--muted);
 }
+#fullscreenBtn {
+  background: #333;
+  color: white;
+  border: none;
+  padding: 6px 12px;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+#fullscreenBtn:hover {
+  background: #555;
+}
 
 .auto-run {
   font-size: .85rem;
