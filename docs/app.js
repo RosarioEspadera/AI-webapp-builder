@@ -1,7 +1,11 @@
-// ===== Config =====
+// ==========================
+// 🔧 Config
+// ==========================
 const backendURL = "https://ai-webapp-builder-production.up.railway.app/generate";
 
-// ===== State =====
+// ==========================
+// 📂 State
+// ==========================
 let files = {
   "index.html": "",
   "style.css": "",
@@ -9,24 +13,35 @@ let files = {
 };
 let currentFile = "index.html";
 
+// ==========================
+// 💾 Storage Keys
+// ==========================
 const STORAGE_KEY = "ai-webapp-builder:files:v1";
 const CURRENT_FILE_KEY = "ai-webapp-builder:currentFile:v1";
 
-// ===== Elements =====
+// ==========================
+// 🎨 Elements
+// ==========================
 const terminal = document.getElementById("terminal");
 const output = document.getElementById("output");
 const preview = document.getElementById("preview");
 const lineNumbers = document.getElementById("lineNumbers");
 const promptEl = document.getElementById("prompt");
 
-// ===== Persistence =====
-function safeGet(k){ try{return localStorage.getItem(k)}catch{return null} }
-function safeSet(k,v){ try{localStorage.setItem(k,v)}catch{} }
-function saveAll(){
+// ==========================
+// 💾 Persistence
+// ==========================
+function safeGet(key) {
+  try { return localStorage.getItem(key); } catch { return null; }
+}
+function safeSet(key, val) {
+  try { localStorage.setItem(key, val); } catch {}
+}
+function saveAll() {
   safeSet(STORAGE_KEY, JSON.stringify(files));
   safeSet(CURRENT_FILE_KEY, currentFile);
 }
-function loadAll(){
+function loadAll() {
   const raw = safeGet(STORAGE_KEY);
   const cf = safeGet(CURRENT_FILE_KEY);
   if (raw) {
@@ -35,8 +50,10 @@ function loadAll(){
   if (cf && files[cf] !== undefined) currentFile = cf;
 }
 
-// ===== Terminal =====
-function writeLog(msg, isError=false) {
+// ==========================
+// 🖥 Terminal Logger
+// ==========================
+function writeLog(msg, isError = false) {
   const line = document.createElement("div");
   line.textContent = msg;
   if (isError) line.style.color = "#f55";
@@ -44,54 +61,59 @@ function writeLog(msg, isError=false) {
   terminal.scrollTop = terminal.scrollHeight;
 }
 
-// ===== Cursor preservation =====
-function getCursorPosition(element) {
-  const selection = window.getSelection();
-  if (selection.rangeCount === 0) return 0;
-  const range = selection.getRangeAt(0);
-  const preRange = range.cloneRange();
-  preRange.selectNodeContents(element);
-  preRange.setEnd(range.endContainer, range.endOffset);
-  return preRange.toString().length;
+// ==========================
+// 🖱 Cursor Preservation
+// ==========================
+function getCursorPosition(el) {
+  const sel = window.getSelection();
+  if (!sel.rangeCount) return 0;
+  const range = sel.getRangeAt(0);
+  const pre = range.cloneRange();
+  pre.selectNodeContents(el);
+  pre.setEnd(range.endContainer, range.endOffset);
+  return pre.toString().length;
 }
 
-function setCursorPosition(element, pos) {
-  const selection = window.getSelection();
+function setCursorPosition(el, pos) {
+  const sel = window.getSelection();
   const range = document.createRange();
-  let node = element;
   let charIndex = 0;
 
-  function findNode(n) {
-    if (n.nodeType === 3) {
-      let nextCharIndex = charIndex + n.length;
+  function findNode(node) {
+    if (node.nodeType === 3) {
+      let nextCharIndex = charIndex + node.length;
       if (pos >= charIndex && pos <= nextCharIndex) {
-        range.setStart(n, pos - charIndex);
-        range.setEnd(n, pos - charIndex);
+        range.setStart(node, pos - charIndex);
+        range.setEnd(node, pos - charIndex);
         return true;
       }
       charIndex = nextCharIndex;
     } else {
-      for (let child of n.childNodes) {
+      for (let child of node.childNodes) {
         if (findNode(child)) return true;
       }
     }
     return false;
   }
 
-  findNode(element);
-  selection.removeAllRanges();
-  selection.addRange(range);
+  findNode(el);
+  sel.removeAllRanges();
+  sel.addRange(range);
 }
 
-// ===== Editor =====
+// ==========================
+// 📄 Editor
+// ==========================
 function showFile(fileName) {
   saveEdits();
   currentFile = fileName;
 
+  // Highlight active tab
   document.querySelectorAll(".tab").forEach(t => {
     t.classList.toggle("active", t.dataset.file === fileName);
   });
 
+  // Syntax highlighting
   output.className = "editor";
   if (fileName.endsWith(".html")) output.classList.add("language-html");
   if (fileName.endsWith(".css")) output.classList.add("language-css");
@@ -110,15 +132,16 @@ function saveEdits() {
 
 function updateLineNumbers() {
   const lines = (output.textContent.match(/\n/g) || []).length + 1;
-  lineNumbers.textContent = Array.from({length: lines}, (_,i)=>i+1).join("\n");
+  lineNumbers.textContent = Array.from({ length: lines }, (_, i) => i + 1).join("\n");
 }
 
-// ===== Input handling =====
+// ==========================
+// ⌨️ Input Handling
+// ==========================
 output.addEventListener("input", () => {
   const pos = getCursorPosition(output);
   Prism.highlightElement(output);
   setCursorPosition(output, pos);
-
   updateLineNumbers();
   saveEdits();
 });
@@ -135,17 +158,14 @@ output.addEventListener("keydown", (e) => {
     updateLineNumbers();
   } else if (e.key === "Tab") {
     e.preventDefault();
-    if (e.shiftKey) {
-      document.execCommand("delete", false, null);
-      document.execCommand("delete", false, null);
-    } else {
-      document.execCommand("insertText", false, "  ");
-    }
+    document.execCommand("insertText", false, e.shiftKey ? "" : "  ");
     updateLineNumbers();
   }
 });
 
-// ===== Preview =====
+// ==========================
+// 🔍 Live Preview
+// ==========================
 function injectPreview() {
   const doc = preview.contentDocument || preview.contentWindow.document;
   doc.open();
@@ -164,12 +184,16 @@ ${files["index.html"] || ""}
   doc.close();
 }
 
-// ===== Tabs =====
+// ==========================
+// 🗂 Tabs
+// ==========================
 document.querySelectorAll(".tab").forEach(tab => {
   tab.addEventListener("click", () => showFile(tab.dataset.file));
 });
 
-// ===== Generate (Streaming NDJSON) =====
+// ==========================
+// 🤖 AI Code Generator
+// ==========================
 document.getElementById("generateBtn").addEventListener("click", async () => {
   terminal.textContent = "";
   writeLog("🚀 Requesting build...");
@@ -224,6 +248,7 @@ document.getElementById("generateBtn").addEventListener("click", async () => {
       }
     }
 
+    // Handle final buffer
     if (buffer.trim()) {
       try {
         const msg = JSON.parse(buffer);
@@ -242,14 +267,18 @@ document.getElementById("generateBtn").addEventListener("click", async () => {
   }
 });
 
-// ===== Run =====
+// ==========================
+// ▶️ Run
+// ==========================
 document.getElementById("runBtn").addEventListener("click", () => {
   saveEdits();
   injectPreview();
   writeLog("▶️ Running app in preview...");
 });
 
-// ===== Reset =====
+// ==========================
+// ♻️ Reset
+// ==========================
 document.getElementById("resetBtn").addEventListener("click", () => {
   localStorage.removeItem(STORAGE_KEY);
   localStorage.removeItem(CURRENT_FILE_KEY);
@@ -262,7 +291,9 @@ document.getElementById("resetBtn").addEventListener("click", () => {
   writeLog("♻️ Workspace reset.");
 });
 
-// ===== Init =====
+// ==========================
+// 🚀 Init
+// ==========================
 loadAll();
 showFile(currentFile);
 injectPreview();
