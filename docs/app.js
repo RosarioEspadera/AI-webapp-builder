@@ -1,282 +1,402 @@
 // ==========================
-// 🔧 Config
+// Backend endpoint
 // ==========================
-const backendURL = "https://ai-webapp-builder-production.up.railway.app/generate";
+const backendURL = "https://ai-webapp-builder-production.up.railway.app/generate"; 
 
 // ==========================
-// 📂 State
+// Elements
 // ==========================
-let files = { "index.html": "", "style.css": "", "script.js": "" };
-let currentFile = "index.html";
-// ==========================
-// 💾 Storage Keys
-// ==========================
-const STORAGE_KEY = "ai-webapp-builder:files:v1";
-const CURRENT_FILE_KEY = "ai-webapp-builder:currentFile:v1";
+const logsEl = document.getElementById("logs");
+const editorHost = document.getElementById("editor");
+const previewFrame = document.getElementById("previewFrame");
+const promptInput = document.getElementById("promptInput");
+const generateBtn = document.getElementById("generateBtn");
+const runBtn = document.getElementById("runBtn");
+const resetBtn = document.getElementById("resetBtn");
+const statusLeft = document.getElementById("statusLeft");
+const autoRunEl = document.getElementById("autoRun");
 
 // ==========================
-// 🎨 Elements
+// State & persistence
 // ==========================
-const terminal = document.getElementById("terminal");
-const output = document.getElementById("output");
-const preview = document.getElementById("preview");
-const lineNumbers = document.getElementById("lineNumbers");
-const promptEl = document.getElementById("prompt");
-const modelEl = document.getElementById("model"); // ✅ added
+const STORAGE_KEY = "awb:files:v2";
+const TAB_KEY = "awb:tab:v2";
 
-// ==========================
-// 💾 Persistence
-// ==========================
-function safeGet(key) {
-  try { return localStorage.getItem(key); } catch { return null; }
-}
-function safeSet(key, val) {
-  try { localStorage.setItem(key, val); } catch {}
-}
+let files = {
+  "index.html": "<!-- Start typing or click ✨ Generate -->",
+  "style.css": "/* styles */",
+  "script.js": "// JS"
+};
+let currentFile = localStorage.getItem(TAB_KEY) || "index.html";
+
+// Load from localStorage if present
+try {
+  const saved = JSON.parse(localStorage.getItem(STORAGE_KEY) || "{}");
+  files = { ...files, ...saved };
+} catch { /* ignore */ }
+
 function saveAll() {
-  safeSet(STORAGE_KEY, JSON.stringify(files));
-  safeSet(CURRENT_FILE_KEY, currentFile);
-}
-function loadAll() {
-  const raw = safeGet(STORAGE_KEY);
-  const cf = safeGet(CURRENT_FILE_KEY);
-  if (raw) {
-    try { files = { ...files, ...JSON.parse(raw) }; } catch {}
-  }
-  if (cf && files[cf] !== undefined) currentFile = cf;
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(files));
+  localStorage.setItem(TAB_KEY, currentFile);
 }
 
 // ==========================
-// 🖥 Terminal Logger
+// Logger
 // ==========================
-function writeLog(msg, isError = false) {
-  const line = document.createElement("div");
-  line.textContent = msg;
-  if (isError) line.style.color = "#f55";
-  terminal.appendChild(line);
-  terminal.scrollTop = terminal.scrollHeight;
+function log(msg, cls) {
+  const div = document.createElement("div");
+  if (cls) div.className = cls;
+  div.textContent = msg;
+  logsEl.appendChild(div);
+  logsEl.scrollTop = logsEl.scrollHeight;
+}
+function clearLogs() { logsEl.textContent = ""; }
+
+// ==========================
+// Monaco setup
+// ==========================
+let monacoEditor;
+let models = {}; // filename -> model
+
+function languageFor(file) {
+  if (file.endsWith(".html")) return "html";
+  if (file.endsWith(".css")) return "css";
+  if (file.endsWith(".js")) return "javascript";
+  return "plaintext";
 }
 
-// ==========================
-// 🖱 Cursor Preservation
-// ==========================
-function getCursorPosition(el) {
-  const sel = window.getSelection();
-  if (!sel.rangeCount) return 0;
-  const range = sel.getRangeAt(0);
-  const pre = range.cloneRange();
-  pre.selectNodeContents(el);
-  pre.setEnd(range.endContainer, range.endOffset);
-  return pre.toString().length;
+function createModelIfNeeded(file) {
+  if (models[file]) return models[file];
+  const uri = monaco.Uri.parse(`inmemory:///${file}`);
+  const model = monaco.editor.createModel(files[file] || "", languageFor(file), uri);
+  models[file] = model;
+  // mirror model → files + preview + lint
+  model.onDidChangeContent(debounce(() => {
+    files[file] = model.getValue();
+    saveAll();
+    validateAll();               // diagnostics
+    if (autoRunEl.checked) renderPreview(); // live preview
+    statusLeft.textContent = `Edited ${file} • ${new Date().toLocaleTimeString()}`;
+  }, 200));
+  return model;
 }
 
-function setCursorPosition(el, pos) {
-  const sel = window.getSelection();
-  const range = document.createRange();
-  let charIndex = 0;
-
-  function findNode(node) {
-    if (node.nodeType === 3) {
-      let nextCharIndex = charIndex + node.length;
-      if (pos >= charIndex && pos <= nextCharIndex) {
-        range.setStart(node, pos - charIndex);
-        range.setEnd(node, pos - charIndex);
-        return true;
-      }
-      charIndex = nextCharIndex;
-    } else {
-      for (let child of node.childNodes) {
-        if (findNode(child)) return true;
-      }
-    }
-    return false;
-  }
-
-  findNode(el);
-  sel.removeAllRanges();
-  sel.addRange(range);
-}
-
-// ==========================
-// 📄 Editor
-// ==========================
-function showFile(fileName) {
-  saveEdits();
-  currentFile = fileName;
-
-  // Highlight active tab
-  document.querySelectorAll(".tab").forEach(t => {
-    t.classList.toggle("active", t.dataset.file === fileName);
+// Simple completion providers (handy snippets)
+function registerCompletions() {
+  // HTML snippets
+  monaco.languages.registerCompletionItemProvider("html", {
+    provideCompletionItems: () => ({
+      suggestions: [
+        snippet("html:base", "Basic HTML5", "html",
+`<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>\${1:App}</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+\${0}
+<script src="script.js"></script>
+</body>
+</html>`),
+        snippet("div.c", "<div class='container'>", "html", `<div class="container">\n\t\${0}\n</div>`),
+        snippet("btn", "button.primary", "html", `<button class="btn">\${1:Click}</button>`)
+      ]
+    })
   });
 
-  // Syntax highlighting
-  output.className = "editor";
-  if (fileName.endsWith(".html")) output.classList.add("language-html");
-  if (fileName.endsWith(".css")) output.classList.add("language-css");
-  if (fileName.endsWith(".js")) output.classList.add("language-javascript");
+  // CSS snippets
+  monaco.languages.registerCompletionItemProvider("css", {
+    provideCompletionItems: () => ({
+      suggestions: [
+        snippet("center-flex", "Center with flex", "css",
+`.center {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}`),
+        snippet("btn", ".btn style", "css",
+`.btn {
+  padding: .5rem .8rem;
+  border-radius: .5rem;
+  border: none;
+  cursor: pointer;
+}`)
+      ]
+    })
+  });
 
-  output.textContent = files[fileName] || "";
-  Prism.highlightElement(output);
-  updateLineNumbers();
-  saveAll();
+  // JS snippets
+  monaco.languages.registerCompletionItemProvider("javascript", {
+    provideCompletionItems: () => ({
+      suggestions: [
+        snippet("qs", "document.querySelector", "javascript", `document.querySelector('\${1:#id}')`),
+        snippet("listener", "addEventListener", "javascript",
+`document.querySelector('\${1:#id}').addEventListener('\${2:click}', (e) => {
+  \${0}
+});`),
+        snippet("fetch", "fetch JSON", "javascript",
+`const res = await fetch('\${1:/api}');
+const data = await res.json();
+console.log(data);`)
+      ]
+    })
+  });
 }
 
-function saveEdits() {
-  files[currentFile] = output.textContent;
-  saveAll();
+function snippet(key, label, lang, body) {
+  return {
+    label, kind: monaco.languages.CompletionItemKind.Snippet,
+    insertTextRules: monaco.languages.CompletionItemInsertTextRule.InsertAsSnippet,
+    insertText: body, documentation: `${label} (${lang})`,
+    range: undefined, // let Monaco decide
+    sortText: "0",
+    filterText: key
+  };
 }
 
-function updateLineNumbers() {
-  const lines = (output.textContent.match(/\n/g) || []).length + 1;
-  lineNumbers.textContent = Array.from({ length: lines }, (_, i) => i + 1).join("\n");
-}
+// Basic validators for quick feedback in addition to Monaco’s own
+function validateAll() {
+  // HTML validate
+  try {
+    const parser = new DOMParser();
+    const doc = parser.parseFromString(files["index.html"] || "", "text/html");
+    const errors = doc.querySelectorAll("parsererror");
+    const markers = [];
+    if (errors.length) {
+      markers.push({
+        severity: monaco.MarkerSeverity.Warning,
+        message: "HTML parse warning: check structure (parser reported an issue).",
+        startLineNumber: 1, startColumn: 1, endLineNumber: 1, endColumn: 2
+      });
+    }
+    monaco.editor.setModelMarkers(models["index.html"] || createModelIfNeeded("index.html"), "html-check", markers);
+  } catch {/* ignore */ }
 
-// ==========================
-// ⌨️ Input Handling
-// ==========================
-output.addEventListener("input", () => {
-  const pos = getCursorPosition(output);
-  Prism.highlightElement(output);
-  setCursorPosition(output, pos);
-  updateLineNumbers();
-  saveEdits();
-});
+  // CSS validate (very light)
+  try {
+    const styleSheet = new CSSStyleSheet();
+    // will throw on some invalid rules in some browsers; wrap each rule
+    const src = files["style.css"] || "";
+    const markers = [];
+    src.split("}").forEach((chunk, i) => {
+      const rule = (chunk.trim() ? chunk + "}" : "").trim();
+      if (!rule) return;
+      try { styleSheet.insertRule(rule, styleSheet.cssRules.length); }
+      catch {
+        markers.push({
+          severity: monaco.MarkerSeverity.Warning,
+          message: "CSS rule may be invalid near: " + rule.slice(0, 60),
+          startLineNumber: i + 1, startColumn: 1, endLineNumber: i + 1, endColumn: 2
+        });
+      }
+    });
+    monaco.editor.setModelMarkers(models["style.css"] || createModelIfNeeded("style.css"), "css-check", markers);
+  } catch {/* ignore */ }
 
-output.addEventListener("keydown", (e) => {
-  if (e.key === "Enter") {
-    e.preventDefault();
-    const sel = window.getSelection();
-    const range = sel.getRangeAt(0);
-    const before = output.textContent.slice(0, range.startOffset);
-    const currentLine = before.split("\n").pop();
-    const indent = (currentLine.match(/^\s+/) || [""])[0];
-    document.execCommand("insertText", false, "\n" + indent);
-    updateLineNumbers();
-  } else if (e.key === "Tab") {
-    e.preventDefault();
-    document.execCommand("insertText", false, e.shiftKey ? "" : "  ");
-    updateLineNumbers();
+  // JS syntax check (no execution)
+  try {
+    new Function(files["script.js"] || ""); // throws on syntax error
+    monaco.editor.setModelMarkers(models["script.js"] || createModelIfNeeded("script.js"), "js-check", []);
+  } catch (e) {
+    monaco.editor.setModelMarkers(
+      models["script.js"] || createModelIfNeeded("script.js"),
+      "js-check",
+      [{
+        severity: monaco.MarkerSeverity.Error,
+        message: String(e.message || e),
+        startLineNumber: 1, startColumn: 1, endLineNumber: 1, endColumn: 1
+      }]
+    );
   }
-});
+}
+
+function mountMonaco() {
+  require.config({ paths: { 'vs': 'https://cdn.jsdelivr.net/npm/monaco-editor@0.45.0/min/vs' } });
+  require(['vs/editor/editor.main'], () => {
+    monacoEditor = monaco.editor.create(editorHost, {
+      model: null, // we’ll attach per-tab models
+      theme: "vs-dark",
+      automaticLayout: true,
+      fontLigatures: true,
+      fontSize: 14,
+      minimap: { enabled: true },
+      tabSize: 2,
+      insertSpaces: true,
+      wordWrap: "off",
+      scrollBeyondLastLine: false,
+      renderWhitespace: "selection"
+    });
+
+    // create models
+    ["index.html", "style.css", "script.js"].forEach(createModelIfNeeded);
+
+    // completions/snippets
+    registerCompletions();
+
+    // open current tab
+    switchTab(currentFile);
+
+    // initial preview & diagnostics
+    renderPreview();
+    validateAll();
+  });
+}
 
 // ==========================
-// 🔍 Live Preview
+// Tabs
 // ==========================
-function injectPreview() {
-  const doc = preview.contentDocument || preview.contentWindow.document;
-  doc.open();
-  doc.write(`
+document.querySelectorAll(".tab").forEach(btn => {
+  btn.addEventListener("click", () => switchTab(btn.dataset.file));
+});
+
+function switchTab(file) {
+  currentFile = file;
+  document.querySelectorAll(".tab").forEach(b => b.classList.toggle("active", b.dataset.file === file));
+  const model = createModelIfNeeded(file);
+  monacoEditor.setModel(model);
+  statusLeft.textContent = `Editing ${file}`;
+  saveAll();
+}
+
+// ==========================
+// Preview
+// ==========================
+function renderPreview() {
+  const html = `
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-<meta charset="utf-8"/>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
 <style>${files["style.css"] || ""}</style>
 </head>
 <body>
 ${files["index.html"] || ""}
 <script>${files["script.js"] || ""}<\/script>
 </body>
-</html>`);
+</html>`;
+  const doc = previewFrame.contentDocument || previewFrame.contentWindow.document;
+  doc.open();
+  doc.write(html);
   doc.close();
 }
 
 // ==========================
-// 🗂 Tabs
+// Debounce helper
 // ==========================
-document.querySelectorAll(".tab").forEach(tab => {
-  tab.addEventListener("click", () => showFile(tab.dataset.file));
-});
+function debounce(fn, ms = 200) {
+  let t;
+  return (...args) => {
+    clearTimeout(t);
+    t = setTimeout(() => fn(...args), ms);
+  };
+}
 
 // ==========================
-// 🤖 AI Code Generator
+// Generate via NDJSON stream
 // ==========================
-document.getElementById("generateBtn").addEventListener("click", async () => {
-  terminal.textContent = "";
-  writeLog("🚀 Requesting build...");
+generateBtn.addEventListener("click", async () => {
+  clearLogs();
+  log("🚀 Requesting build…");
 
-  const prompt = (promptEl.value || "simple todo app").trim();
-  const model = modelEl.value; // ✅ send model
+  const prompt = (promptInput.value || "simple app").trim();
 
+  let resp;
   try {
-    const res = await fetch(backendURL, {
+    resp = await fetch(backendURL, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ prompt, model }) // ✅ backend accepts model now
+      body: JSON.stringify({ prompt })
     });
+  } catch (e) {
+    log(`❌ Network error: ${e.message}`, "log-error");
+    return;
+  }
 
-    if (!res.ok || !res.body) {
-      writeLog(`❌ Backend error: ${res.status}`, true);
-      return;
-    }
+  if (!resp.ok || !resp.body) {
+    log(`❌ Backend error: ${resp.status}`, "log-error");
+    return;
+  }
 
-    const reader = res.body.getReader();
-    const decoder = new TextDecoder("utf-8");
-    let buffer = "";
+  const reader = resp.body.getReader();
+  const decoder = new TextDecoder("utf-8");
+  let buffer = "";
 
-    while (true) {
-      const { value, done } = await reader.read();
-      if (done) break;
-      buffer += decoder.decode(value, { stream: true });
+  while (true) {
+    const { value, done } = await reader.read();
+    if (done) break;
+    buffer += decoder.decode(value, { stream: true });
 
-      const lines = buffer.split("\n");
-      buffer = lines.pop() || "";
+    let lines = buffer.split("\n");
+    buffer = lines.pop() || ""; // keep possible partial
 
-      for (const line of lines) {
-        if (!line.trim()) continue;
-        let msg;
-        try { msg = JSON.parse(line); } catch {
-          writeLog("⚠️ Non-JSON chunk skipped");
-          continue;
-        }
+    for (const line of lines) {
+      if (!line.trim()) continue;
+      let evt;
+      try { evt = JSON.parse(line); }
+      catch { log("⚠️ Skipped non-JSON chunk"); continue; }
 
-        if (msg.type === "log") {
-          writeLog(msg.message);
-        } else if (msg.type === "file") {
-          files[msg.name] = msg.content || "";
-          if (currentFile === msg.name) {
-            output.textContent = files[msg.name];
-            Prism.highlightElement(output);
-            updateLineNumbers();
+      if (evt.type === "log") {
+        log(evt.message);
+      } else if (evt.type === "file") {
+        // update files + model
+        if (evt.name in files) {
+          files[evt.name] = evt.content || "";
+          saveAll();
+          const model = createModelIfNeeded(evt.name);
+          model.setValue(files[evt.name]);
+          if (currentFile === evt.name) {
+            monacoEditor.setModel(model);
           }
-          injectPreview();
-          writeLog(`🧩 Updated ${msg.name}`);
+          validateAll();
+          if (autoRunEl.checked) renderPreview();
+          log(`🧩 Updated ${evt.name}`, "log-ok");
+        } else if (evt.hidden) {
+          // ignore hidden debug files in UI
         }
       }
     }
-    writeLog("✅ Build stream finished.");
-  } catch (err) {
-    writeLog(`❌ ${err.message}`, true);
   }
+
+  // trailing chunk (rare)
+  if (buffer.trim()) {
+    try {
+      const evt = JSON.parse(buffer);
+      if (evt.type === "file" && evt.name in files) {
+        files[evt.name] = evt.content || "";
+      }
+    } catch {}
+  }
+
+  log("✅ Build stream finished", "log-ok");
 });
 
-
 // ==========================
-// ▶️ Run
+// Run & Reset
 // ==========================
-document.getElementById("runBtn").addEventListener("click", () => {
-  saveEdits();
-  injectPreview();
-  writeLog("▶️ Running app in preview...");
+runBtn.addEventListener("click", () => {
+  renderPreview();
+  validateAll();
+  log("▶️ Preview refreshed");
 });
 
-// ==========================
-// ♻️ Reset
-// ==========================
-document.getElementById("resetBtn").addEventListener("click", () => {
+resetBtn.addEventListener("click", () => {
   localStorage.removeItem(STORAGE_KEY);
-  localStorage.removeItem(CURRENT_FILE_KEY);
-  files = { "index.html": "", "style.css": "", "script.js": "" };
-  currentFile = "index.html";
-  output.textContent = "";
-  updateLineNumbers();
-  Prism.highlightElement(output);
-  injectPreview();
-  writeLog("♻️ Workspace reset.");
+  files = {
+    "index.html": "<!-- Start typing or click ✨ Generate -->",
+    "style.css": "/* styles */",
+    "script.js": "// JS"
+  };
+  Object.entries(models).forEach(([name, model]) => model.setValue(files[name]));
+  renderPreview();
+  validateAll();
+  log("♻️ Workspace reset");
 });
 
 // ==========================
-// 🚀 Init
+// Boot
 // ==========================
-loadAll();
-showFile(currentFile);
-injectPreview();
+mountMonaco();
